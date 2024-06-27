@@ -1,5 +1,5 @@
 ﻿# Define the IP address of the WIZ lamp
-$lampIP = '10.0.20.228'
+$lampIP = '0.0.0.0'
 $lampPort = 38899
 
 # Define the JSON payload for turning the lamp on or off
