@@ -1,80 +1,107 @@
-﻿# Define the IP address of the WIZ lamp
-$lampIP = '0.0.0.0'
-$lampPort = 38899
+﻿<#
+.SYNOPSIS
+Controls the state, brightness, and color of a WIZ smart lamp.
 
-# Define the JSON payload for turning the lamp on or off
-$payloadOn = @{
-    method = 'setPilot'
-    params = @{
-        state = $true
-    }
-} | ConvertTo-Json
+.DESCRIPTION
+The Set-WizLampState function sends UDP packets to a WIZ smart lamp to control its state (on/off), brightness, and RGB color values. The function requires the IP address of the lamp and allows for optional parameters to set color and brightness.
 
-$payloadOff = @{
-    method = 'setPilot'
-    params = @{
-        state = $false
-    }
-} | ConvertTo-Json
+.PARAMETER lampIP
+The IP address of the WIZ lamp. This parameter is mandatory and must be in the format 'xxx.xxx.xxx.xxx'.
 
-$payloadRed = @{
-    method = 'setPilot'
-    params = @{
-        r     = 255
-        g     = 0
-        b     = 0
-        state = $true
-    }
-} | ConvertTo-Json
+.PARAMETER lampPort
+The port number of the WIZ lamp. This parameter is optional and defaults to 38899.
 
-$payloadGreen = @{
-    method = 'setPilot'
-    params = @{
-        r     = 0
-        g     = 255
-        b     = 0
-        state = $true
-    }
-} | ConvertTo-Json
+.PARAMETER state
+The desired state of the lamp. This parameter is mandatory and must be either 'on' or 'off'.
 
-# Function to send UDP message to the WIZ lamp
-function Send-UDPPacket {
-    param (
-        [string]$ip,
-        [int]$port,
-        [string]$message
-    )
+.PARAMETER r
+The red component of the RGB color value. This parameter is optional and defaults to 0.
 
-    $udpClient = New-Object System.Net.Sockets.UdpClient
-    $udpClient.Connect($ip, $port)
-    $bytes = [System.Text.Encoding]::UTF8.GetBytes($message)
-    $udpClient.Send($bytes, $bytes.Length)
-    $udpClient.Close()
-}
+.PARAMETER g
+The green component of the RGB color value. This parameter is optional and defaults to 0.
 
-# Function to set the state of the WIZ lamp
+.PARAMETER b
+The blue component of the RGB color value. This parameter is optional and defaults to 0.
+
+.PARAMETER brightness
+The brightness level of the lamp. This parameter is optional and defaults to 100.
+
+.EXAMPLE
+Set-WizLampState -state 'on' -lampIP '192.168.1.10'
+Turns the lamp on with the default brightness.
+
+.EXAMPLE
+Set-WizLampState -state 'off' -lampIP '192.168.1.10'
+Turns the lamp off.
+
+.EXAMPLE
+Set-WizLampState -state 'on' -lampIP '192.168.1.10' -brightness 50
+Turns the lamp on with 50% brightness.
+
+.EXAMPLE
+Set-WizLampState -state 'on' -lampIP '192.168.1.10' -r 255 -g 100 -b 50 -brightness 80
+Turns the lamp on with an RGB color value of (255, 100, 50) and 80% brightness.
+
+#>
+
+
 function Set-WizLampState {
     param (
-        [string]$state
+        [Parameter(Mandatory = $true)]
+        [ValidatePattern('^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$')]
+        [string]$lampIP,
+        [int]$lampPort = 38899,
+        [Parameter(Mandatory = $true)]
+        [ValidateSet('on', 'off')]
+        [string]$state = 'on',
+        [int]$r = 0,
+        [int]$g = 0,  
+        [int]$b = 0,
+        [int]$brightness = 100
     )
-
-    switch ($state) {
-        'on' {
-            $payload = $payloadOn
-        }
-        'off' {
-            $payload = $payloadOff
-        }
-        'red' {
-            $payload = $payloadRed
-        }
-        'green' {
-            $payload = $payloadGreen
-        }
-        default {
-            Write-Error "Invalid state. Use 'on', 'off', or 'red'."
-            return
-        }
+    function Send-UDPPacket {
+        param (
+            [string]$ip,
+            [int]$port,
+            [string]$message
+        )
+    
+        $udpClient = New-Object System.Net.Sockets.UdpClient
+        $udpClient.Connect($ip, $port)
+        $bytes = [System.Text.Encoding]::UTF8.GetBytes($message)
+        $udpClient.Send($bytes, $bytes.Length)
+        $udpClient.Close()
+    }
+    
+    if ($state -eq 'on') {
+        $payload = @{
+            method = 'setPilot'
+            params = @{
+                state   = $true
+                dimming = $brightness
+            }
+        } | ConvertTo-Json
+    }
+    if ($r -ne 0 -or $g -ne 0 -or $b -ne 0 -and $state -eq 'on') {    
+        $payload = @{
+            method = 'setPilot'
+            params = @{
+                r       = $r
+                g       = $g
+                b       = $b
+                state   = $true
+                dimming = $brightness
+            }
+        } | ConvertTo-Json
+    }
+    if ($state -eq 'off') {
+        $payload = @{
+            method = 'setPilot'
+            params = @{
+                state   = $false
+                dimming = $brightness
+            }
+        } | ConvertTo-Json
     }
 
     Send-UDPPacket -ip $lampIP -port $lampPort -message $payload
@@ -82,7 +109,13 @@ function Set-WizLampState {
 
 # Example usage
 # Turn the lamp on
-Set-WizLampState -state 'on'
+# Set-WizLampState -state 'on' -lampIP '192.168.1.10'
 
 # Turn the lamp off
-# Set-WizLampState -state "off"
+# Set-WizLampState -state 'off' -lampIP '192.168.1.10'
+
+# Turn the lamp on with specific brightness
+# Set-WizLampState -state 'on' -lampIP '192.168.1.10' -brightness 50
+
+# Turn the lamp on with specific color and brightness
+# Set-WizLampState -state 'on' -lampIP '192.168.1.10' -r 255 -g 100 -b 50 -brightness 80
