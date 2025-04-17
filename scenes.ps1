@@ -34,5 +34,6 @@ $SCENES = @{
     33 = "Diwali"
     34 = "White"
     35 = "Alarm"
+    36 = " Disco"
     1000 = "Rhythm"
 }
